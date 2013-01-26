@@ -87,21 +87,15 @@ return {
 
     if rundebug then DebuggerAttachDefault({redirect = "c"}) end
 
+    local pid
     local remote = ide.config.gideros and ide.config.gideros.remote
-    local cmd = remote and ('"%s" -e "io.stdin:read()"'):format(exePath())
-      or ('"%s"'):format(gideros)
-    -- CommandLineRun(cmd,wdir,tooutput,nohide,stringcallback,uid,endcallback)
-    local pid = CommandLineRun(cmd,self:fworkdir(wfilename),not mac,not remote,nil,nil,
-      function()
-        ide.debugger.pid = nil
-        if remote then
-          local cmd = ('"%s" %s'):format(gdrbridge, 'stop')
-          local bid = wx.wxExecute(cmd, wx.wxEXEC_ASYNC)
-          if not isValidPid(bid, cmd) then return end
-          waitToComplete(bid)
-        end
-      end)
-    if not pid then return end
+    if not remote then
+      local cmd = ('"%s"'):format(gideros)
+      -- CommandLineRun(cmd,wdir,tooutput,nohide,stringcallback,uid,endcallback)
+      pid = CommandLineRun(cmd,self:fworkdir(wfilename),not mac,not remote,nil,nil,
+        function() ide.debugger.pid = nil end)
+      if not pid then return end
+    end
 
     do
       DisplayOutputLn("Starting the player and waiting for the bridge to connect at '"..gdrbridge.."'.")
@@ -127,13 +121,13 @@ return {
         if connected then break end
         if connected == nil and proc then
           wx.wxProcess.Kill(bid, wx.wxSIGKILL, wx.wxKILL_CHILDREN)
-          wx.wxProcess.Kill(pid, wx.wxSIGKILL, wx.wxKILL_CHILDREN)
+          if not remote then wx.wxProcess.Kill(pid, wx.wxSIGKILL, wx.wxKILL_CHILDREN) end
           DisplayOutputLn("Couldn't connect to the player. Try again or check starting the player and the bridge manually.")
           return
         end
       end
       if not connected then
-        wx.wxProcess.Kill(pid, wx.wxSIGKILL, wx.wxKILL_CHILDREN)
+        if not remote then wx.wxProcess.Kill(pid, wx.wxSIGKILL, wx.wxKILL_CHILDREN) end
         DisplayOutputLn("Couldn't connect after "..attempts.." attempts. Try again or check starting the player manually.")
         return
       end
