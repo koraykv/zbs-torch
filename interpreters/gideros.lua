@@ -25,7 +25,7 @@ local function waitToComplete(bid)
   while wx.wxProcess.Exists(bid) do
     wx.wxSafeYield()
     wx.wxWakeUpIdle()
-    wx.wxMilliSleep(250)
+    wx.wxMilliSleep(100)
   end
 end
 
@@ -89,7 +89,13 @@ return {
 
     local pid
     local remote = ide.config.gideros and ide.config.gideros.remote
-    if not remote then
+    if remote then
+      local cmd = ('"%s" %s "%s"'):format(gdrbridge, 'setip', remote)
+      DisplayOutputLn(("Configuring remote player at %s."):format(remote))
+      local bid = wx.wxExecute(cmd, wx.wxEXEC_ASYNC)
+      if not isValidPid(bid, cmd) then return end
+      waitToComplete(bid) -- wait for a bit to give Gideros chance to connect
+    else
       local cmd = ('"%s"'):format(gideros)
       -- CommandLineRun(cmd,wdir,tooutput,nohide,stringcallback,uid,endcallback)
       pid = CommandLineRun(cmd,self:fworkdir(wfilename),not mac,not remote,nil,nil,
@@ -130,14 +136,6 @@ return {
         if not remote then wx.wxProcess.Kill(pid, wx.wxSIGKILL, wx.wxKILL_CHILDREN) end
         DisplayOutputLn("Couldn't connect after "..attempts.." attempts. Try again or check starting the player manually.")
         return
-      end
-
-      if remote then
-        local cmd = ('"%s" %s "%s"'):format(gdrbridge, 'setip', remote)
-        DisplayOutputLn(("Configuring remote player at %s."):format(remote))
-        local bid = wx.wxExecute(cmd, wx.wxEXEC_ASYNC)
-        if not isValidPid(bid, cmd) then return end
-        waitToComplete(bid) -- wait for a bit to give Gideros chance to connect
       end
 
       local cmd = ('"%s" %s "%s"'):format(gdrbridge, 'play', file)
